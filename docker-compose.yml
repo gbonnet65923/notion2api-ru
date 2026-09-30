@@ -1,0 +1,65 @@
+# ============================================================
+# Notion AI Wrapper - Docker Compose Configuration
+# ============================================================
+# Quick Start:
+#   docker-compose up -d
+#   docker-compose logs -f
+#
+# Check Health:
+#   curl http://localhost:8000/health
+#
+# Update & Restart:
+#   docker-compose down
+#   docker-compose build --no-cache
+#   docker-compose up -d
+# ============================================================
+
+services:
+  notion-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: notion-ai-wrapper:latest
+    container_name: notion_ai_service
+    restart: always
+
+    # Port mapping: Use HOST_PORT env var or default to 8000
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+
+    # Environment configuration
+    env_file:
+      - .env
+    environment:
+      - DB_PATH=/app/data/conversations.db
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Shanghai
+
+    # Data persistence + account config
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./accounts.json:/app/accounts.json:ro
+
+    # Resource limits (prevents container from using all system resources)
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+    # Health check (Docker will restart if unhealthy)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Log rotation (prevents logs from filling disk)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
